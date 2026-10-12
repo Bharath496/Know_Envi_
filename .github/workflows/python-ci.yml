@@ -1,0 +1,42 @@
+name: Python CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile Python
+        run: python -m py_compile streamlit_app.py src/student_dashboard_analysis.py scripts/generate_student_dataset.py
+
+      - name: Smoke-test demo analytics
+        run: |
+          python - <<'PY'
+          import streamlit_app as app
+          frame = app.standardize_frame(app.demo_data(seed=42, students=20))
+          summary = app.student_summary(frame)
+          assert not frame.empty
+          assert not summary.empty
+          assert {"risk_level", "risk_reason"}.issubset(summary.columns)
+          assert set(summary["risk_level"]).issubset({"High", "Medium", "Low"})
+          print("Know Envi smoke test passed")
+          PY
